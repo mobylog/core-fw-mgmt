@@ -16,121 +16,169 @@
 
 #include "hal.h"
 #include "ch.h"
+#include "messages.h"
+
+bool ping_expired;
+bool shutdown;
+
+/*
+ * Watchdog deadline set to more than 2.3s (LSI=37000 / (16 * 1000)).
+ */
+static const WDGConfig wdgcfg = {
+  .pr           = STM32_IWDG_PR_16,
+  .rlr          = STM32_IWDG_RL(1000),
+};
 
 /*
  * Heartbeat led
  */
-THD_WORKING_AREA(waThread1, 64);
-THD_FUNCTION(Thread1, arg) {
+THD_WORKING_AREA(waThreadHB, 64);
+THD_FUNCTION(ThreadHB, arg) {
 
   (void)arg;
 
+  wdgStart(&WDGD1, &wdgcfg);
+
   while (true) {
-    palSetPad(GPIOA, 10);
+    palSetLine(LINE_MGMT_LED);
     chThdSleepMilliseconds(500);
-    palClearPad(GPIOA, 10);
+    palClearLine(LINE_MGMT_LED);
     chThdSleepMilliseconds(500);
+    wdgReset(&WDGD1);
   }
 }
 
 /*
  * Serial
  */
-THD_WORKING_AREA(waThread2, 64);
-THD_FUNCTION(Thread2, arg) {
+THD_WORKING_AREA(waThreadSer, 128);
+THD_FUNCTION(ThreadSer, arg) {
 
   (void)arg;
 
   sdStart(&LPSD1, NULL);
 
   while (true) {
-    chnWrite(&LPSD1, (const uint8_t *)"Hello World!\r\n", 14);
-    chThdSleepMilliseconds(2000);
+    read_message((BaseChannel*)&LPSD1);
   }
 }
 
+/*
+ * CPU watchdog
+ */
+THD_WORKING_AREA(waThreadWD, 64);
+THD_FUNCTION(ThreadWD, arg) {
+
+  (void)arg;
+
+  sdStart(&LPSD1, NULL);
+
+  // Power ON
+  chThdSleepMilliseconds(10);
+  palSetLine(LINE_PWR_ON_IO);
+  chThdSleepMilliseconds(10);
+  palSetLine(LINE_PWR_ON_CORE);
+  chThdSleepMilliseconds(10);
+  palSetLine(LINE_NRST_MPU);
+
+  gptStartOneShot(&GPTD2, TIME_MS2I(1000));
+
+  while (true) {
+    while (!ping_expired) {
+
+      if (shutdown) {
+        palClearLine(LINE_NRST_MPU);
+        palClearLine(LINE_PWR_ON_IO);
+        palClearLine(LINE_PWR_ON_CORE);
+
+        /* going to standby mode */
+        chSysLock();
+        PWR->CSR |= PWR_CSR_EWUP1; // Set WKUP1 pin
+        PWR->CR |= PWR_CR_CWUF | PWR_CR_CSBF;
+        PWR->CR |= PWR_CR_PDDS | PWR_CR_LPDS;
+        SCB->SCR |= SCB_SCR_SLEEPDEEP_Msk;
+        __WFI();
+      }
+
+      chThdSleepMilliseconds(100);
+      continue;
+    }
+
+    palClearLine(LINE_NRST_MPU);
+    palSetLine(LINE_FEL); // eMMC NRST
+    chThdSleepMilliseconds(10);
+
+    palClearLine(LINE_FEL);
+    chThdSleepMilliseconds(100);
+    palSetLine(LINE_NRST_MPU);
+    chThdSleepMilliseconds(10);
+  }
+}
 
 /*===========================================================================*/
 /* ADC driver related.                                                       */
 /*===========================================================================*/
 
-#define ADC_GRP1_NUM_CHANNELS       1
-#define ADC_GRP1_BUF_DEPTH      8
+#define ADC_GRP1_NUM_CHANNELS 2
+#define ADC_GRP1_BUF_DEPTH    8
 
 /* Buffers are allocated with size and address aligned to the cache
    line size.*/
-#if CACHE_LINE_SIZE > 0
-CC_ALIGN_DATA(CACHE_LINE_SIZE)
-#endif
 adcsample_t samples1[CACHE_SIZE_ALIGN(adcsample_t, ADC_GRP1_NUM_CHANNELS * ADC_GRP1_BUF_DEPTH)];
-
-/*
- * ADC streaming callback.
- */
-size_t n= 0, nx = 0, ny = 0;
-void adccallback(ADCDriver *adcp) {
-
-  /* Updating counters.*/
-  n++;
-  if (adcIsBufferComplete(adcp)) {
-    nx += 1;
-  }
-  else {
-    ny += 1;
-  }
-
-  if ((n % 200) == 0U) {
-  }
-}
 
 /*
  * ADC errors callback, should never happen.
  */
-void adcerrorcallback(ADCDriver *adcp, adcerror_t err) {
+static void adcerrorcallback(ADCDriver *adcp, adcerror_t err) {
 
   (void)adcp;
   (void)err;
-
-  chSysHalt("it happened");
 }
 
-const ADCConfig adccfg1 = {
-  .dummy        = 0U
+static const ADCConfig adccfg1 = {
+  .dummy = 0U
 };
 
-/*
- * ADC conversion group 1.
- * Mode:        Linear buffer, 1 channel, SW triggered.
- * Channels:    IN10.
- */
-const ADCConversionGroup adcgrpcfg1 = {
-  .circular     = false,
+static const ADCConversionGroup adcgrpcfg1 = {
+  .circular     = true,
   .num_channels = ADC_GRP1_NUM_CHANNELS,
   .end_cb       = NULL,
   .error_cb     = adcerrorcallback,
-  .cfgr1        = ADC_CFGR1_CONT | ADC_CFGR1_RES_12BIT,     /* CFGR1 */
+  .cfgr1        = ADC_CFGR1_CONT |
+                  ADC_CFGR1_RES_12BIT |
+                  ADC_CFGR1_EXTEN_RISING |
+                  ADC_CFGR1_EXTSEL_SRC(0),                  /* CFGR1 */
   .cfgr2        = 0,                                        /* CFGR2 */
   .tr           = ADC_TR(0, 0),                             /* TR */
-  .smpr         = ADC_SMPR_SMP_19P5,                        /* SMPR */
+  .smpr         = ADC_SMPR_SMP_160P5,                       /* SMPR */
   .chselr       = ADC_CHSELR_CHSEL1 | ADC_CHSELR_CHSEL9     /* CHSELR */
 };
 
-/*
- * ADC
- */
-THD_WORKING_AREA(waThread3, 64);
-THD_FUNCTION(Thread3, arg) {
+static void gpt_cb(GPTDriver *gptp) {
+  (void)gptp;
+  ping_expired = true;
+}
 
+const GPTConfig gptcfg1 = {
+  .frequency    =  10000U,
+  .callback     =  gpt_cb,
+  .cr2          =  0U,
+  .dier         =  0U
+};
+
+static void pwr_cb(void *arg) {
   (void)arg;
 
-  adcStart(&ADCD1, &adccfg1);
-  adcSTM32EnableVREF(&ADCD1);
-  adcSTM32EnableTS(&ADCD1);
-
-  while (true) {
-    adcConvert(&ADCD1, &adcgrpcfg1, samples1, ADC_GRP1_BUF_DEPTH);
-    chThdSleepMilliseconds(2000);
+  chSysLockFromISR();
+  if (palReadLine(LINE_SYS_WKUP1) == PAL_LOW)
+  {
+    // Debounce for 1sec then send sleep order to CPU and wait for OK
+    // Force poweroff after a timer (20s default)
+  } else
+  {
+    // Ignore
   }
+  chSysUnlockFromISR();
 }
 
 
@@ -138,9 +186,9 @@ THD_FUNCTION(Thread3, arg) {
  * Threads creation table, one entry per thread.
  */
 THD_TABLE_BEGIN
-  THD_TABLE_THREAD(0, "heartbeat", waThread1, Thread1, NULL)
-  THD_TABLE_THREAD(1, "serial",   waThread2, Thread2, NULL)
-  THD_TABLE_THREAD(2, "adc",   waThread3, Thread3, NULL)
+  THD_TABLE_THREAD(0, "heartbeat", waThreadHB, ThreadHB, NULL)
+  THD_TABLE_THREAD(1, "cpu-watchdog", waThreadWD, ThreadWD, NULL)
+  THD_TABLE_THREAD(2, "serial", waThreadSer, ThreadSer, NULL)
 THD_TABLE_END
 
 /*
@@ -157,6 +205,28 @@ int main(void) {
    */
   halInit();
   chSysInit();
+
+  ping_expired = false;
+  shutdown = false;
+
+  palEnableLineEvent(LINE_SYS_WKUP1, PAL_EVENT_MODE_BOTH_EDGES);
+  palSetLineCallback(LINE_SYS_WKUP1, pwr_cb, NULL);
+
+  palClearLine(LINE_NRST_MPU);
+  palClearLine(LINE_PWR_ON_IO);
+  palClearLine(LINE_PWR_ON_CORE);
+
+  adcStart(&ADCD1, &adccfg1);
+  adcSTM32EnableVREF(&ADCD1);
+  adcSTM32EnableTS(&ADCD1);
+
+  adcStartConversion(&ADCD1, &adcgrpcfg1, samples1, ADC_GRP1_BUF_DEPTH);
+
+  gptStart(&GPTD2, &gptcfg1);
+
+  /* Start threads manually at the end */
+  chThdCreate(&nil_thd_configs[0]);
+  chThdCreate(&nil_thd_configs[1]);
 
   /* This is now the idle thread loop, you may perform here a low priority
      task but you must never try to sleep or wait in this loop. Note that

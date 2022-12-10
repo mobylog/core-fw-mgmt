@@ -30,7 +30,7 @@ endif
 
 # Enable this if you want link time optimizations (LTO).
 ifeq ($(USE_LTO),)
-  USE_LTO = yes
+  USE_LTO = no
 endif
 
 # Enable this if you want to see the full log while compiling.
@@ -90,6 +90,7 @@ MCU  = cortex-m0plus
 
 # Imported source files and paths.
 CHIBIOS  := ChibiOS
+CHIBIOS_CONTRIB  := ChibiOS-Contrib
 CONFDIR  := ./cfg
 BUILDDIR := ./build
 DEPDIR   := ./.dep
@@ -99,8 +100,8 @@ include $(CHIBIOS)/os/license/license.mk
 # Startup files.
 include $(CHIBIOS)/os/common/startup/ARMCMx/compilers/GCC/mk/startup_stm32l0xx.mk
 # HAL-OSAL files (optional).
-include $(CHIBIOS)/os/hal/hal.mk
-include $(CHIBIOS)/os/hal/ports/STM32/STM32L0xx/platform.mk
+include $(CHIBIOS_CONTRIB)/os/hal/hal.mk
+include $(CHIBIOS_CONTRIB)/os/hal/ports/STM32/STM32L0xx/platform.mk
 include $(CHIBIOS)/os/hal/osal/rt-nil/osal.mk
 # RTOS files (optional).
 include $(CHIBIOS)/os/nil/nil.mk
@@ -117,6 +118,7 @@ LDSCRIPT= $(STARTUPLD)/STM32L011x4.ld
 CSRC = $(ALLCSRC) \
        $(TESTSRC) \
        board.c \
+       messages.c \
        main.c
 
 # C++ sources that can be compiled in ARM or THUMB mode depending on the global

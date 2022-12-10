@@ -51,9 +51,9 @@ for app in APPS:
         print(app.name)
 
         print('RAM used: {:3.2f}% - {:3.2f} / {:.0f}K'.format((ram*100)/app.max_ram,
-                                                   ram/1024.0,
-                                                   app.max_ram/1024.0))
+                                                              ram/1024.0,
+                                                              app.max_ram/1024.0))
 
         print('ROM used: {:3.2f}% - {:3.2f} / {:.0f}K'.format((rom*100)/app.max_rom,
-                                                   rom/1024.0,
-                                                   app.max_rom/1024.0))
+                                                              rom/1024.0,
+                                                              app.max_rom/1024.0))

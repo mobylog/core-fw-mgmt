@@ -55,7 +55,7 @@
  * @brief   Auto starts threads when @p chSysInit() is invoked.
  */
 #if !defined(CH_CFG_AUTOSTART_THREADS)
-#define CH_CFG_AUTOSTART_THREADS            TRUE
+#define CH_CFG_AUTOSTART_THREADS            FALSE
 #endif
 
 /** @} */
