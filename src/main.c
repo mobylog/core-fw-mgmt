@@ -17,33 +17,55 @@
 #include "hal.h"
 #include "ch.h"
 #include "messages.h"
-
-bool ping_expired;
-bool shutdown;
+#include "common.h"
 
 /*
- * Watchdog deadline set to more than 2.3s (LSI=37000 / (16 * 1000)).
+ * Watchdog window set to between 0.69-1.38s
+ * (1/37000) x PR x (RL+1) -> (1/37000) x 128 x 401
  */
 static const WDGConfig wdgcfg = {
-  .pr           = STM32_IWDG_PR_16,
-  .rlr          = STM32_IWDG_RL(1000),
+  .pr   = STM32_IWDG_PR_128,
+  .rlr  = STM32_IWDG_RL(400),
+  .winr = STM32_IWDG_WIN(200)
 };
+
+/*
+ * CRC32 configuration
+ */
+static const CRCConfig crc32_config = {
+  .poly_size         = 32,
+  .poly              = 0x04C11DB7,
+  .initial_val       = 0xFFFFFFFF,
+  .final_val         = 0xFFFFFFFF,
+  .reflect_data      = 1,
+  .reflect_remainder = 1
+};
+
+#define LEDVAL(x) pwmEnableChannel(&PWMD_MGMT_LED, 0, PWM_PERCENTAGE_TO_WIDTH(&PWMD_MGMT_LED, x))
 
 /*
  * Heartbeat led
  */
-THD_WORKING_AREA(waThreadHB, 64);
+THD_WORKING_AREA(waThreadHB, 32);
 THD_FUNCTION(ThreadHB, arg) {
 
   (void)arg;
+  LEDVAL(2000);
 
+  // Go to standby directly if power on pin is down
+  if (palReadLine(LINE_SYS_WKUP1) == PAL_LOW) {
+    chThdSleepMilliseconds(2000);
+    standby();
+  }
+
+  startCpu();
   wdgStart(&WDGD1, &wdgcfg);
 
   while (true) {
-    palSetLine(LINE_MGMT_LED);
-    chThdSleepMilliseconds(500);
-    palClearLine(LINE_MGMT_LED);
-    chThdSleepMilliseconds(500);
+    LEDVAL(1000);
+    chThdSleepMilliseconds(100);
+    LEDVAL(200);
+    chThdSleepMilliseconds(900);
     wdgReset(&WDGD1);
   }
 }
@@ -51,67 +73,13 @@ THD_FUNCTION(ThreadHB, arg) {
 /*
  * Serial
  */
-THD_WORKING_AREA(waThreadSer, 128);
+THD_WORKING_AREA(waThreadSer, 200);
 THD_FUNCTION(ThreadSer, arg) {
 
   (void)arg;
 
-  sdStart(&LPSD1, NULL);
-
   while (true) {
-    read_message((BaseChannel*)&LPSD1);
-  }
-}
-
-/*
- * CPU watchdog
- */
-THD_WORKING_AREA(waThreadWD, 64);
-THD_FUNCTION(ThreadWD, arg) {
-
-  (void)arg;
-
-  sdStart(&LPSD1, NULL);
-
-  // Power ON
-  chThdSleepMilliseconds(10);
-  palSetLine(LINE_PWR_ON_IO);
-  chThdSleepMilliseconds(10);
-  palSetLine(LINE_PWR_ON_CORE);
-  chThdSleepMilliseconds(10);
-  palSetLine(LINE_NRST_MPU);
-
-  gptStartOneShot(&GPTD2, TIME_MS2I(1000));
-
-  while (true) {
-    while (!ping_expired) {
-
-      if (shutdown) {
-        palClearLine(LINE_NRST_MPU);
-        palClearLine(LINE_PWR_ON_IO);
-        palClearLine(LINE_PWR_ON_CORE);
-
-        /* going to standby mode */
-        chSysLock();
-        PWR->CSR |= PWR_CSR_EWUP1; // Set WKUP1 pin
-        PWR->CR |= PWR_CR_CWUF | PWR_CR_CSBF;
-        PWR->CR |= PWR_CR_PDDS | PWR_CR_LPDS;
-        SCB->SCR |= SCB_SCR_SLEEPDEEP_Msk;
-        __WFI();
-      }
-
-      chThdSleepMilliseconds(100);
-      continue;
-    }
-
-    palClearLine(LINE_NRST_MPU);
-    palSetLine(LINE_FEL); // eMMC NRST
-    chThdSleepMilliseconds(10);
-
-    palClearLine(LINE_FEL);
-    chThdSleepMilliseconds(100);
-    palSetLine(LINE_NRST_MPU);
-    chThdSleepMilliseconds(10);
+    read_request((BaseChannel*)&LPSD1);
   }
 }
 
@@ -154,41 +122,34 @@ static const ADCConversionGroup adcgrpcfg1 = {
   .chselr       = ADC_CHSELR_CHSEL1 | ADC_CHSELR_CHSEL9     /* CHSELR */
 };
 
-static void gpt_cb(GPTDriver *gptp) {
-  (void)gptp;
-  ping_expired = true;
-}
-
-const GPTConfig gptcfg1 = {
-  .frequency    =  10000U,
-  .callback     =  gpt_cb,
+static const GPTConfig gptcfg1 = {
+  .frequency    =  1000U,
+  .callback     =  watchDogCallback,
   .cr2          =  0U,
   .dier         =  0U
 };
 
-static void pwr_cb(void *arg) {
-  (void)arg;
-
-  chSysLockFromISR();
-  if (palReadLine(LINE_SYS_WKUP1) == PAL_LOW)
+static const PWMConfig pwmcfg = {
+  100000, /* 100kHz PWM clock frequency. */
+  1000,   /* Initial PWM period 0.1S.    */
+  NULL,
   {
-    // Debounce for 1sec then send sleep order to CPU and wait for OK
-    // Force poweroff after a timer (20s default)
-  } else
-  {
-    // Ignore
-  }
-  chSysUnlockFromISR();
-}
-
+   {PWM_OUTPUT_ACTIVE_HIGH, NULL},
+   {PWM_OUTPUT_DISABLED, NULL},
+   {PWM_OUTPUT_DISABLED, NULL},
+   {PWM_OUTPUT_DISABLED, NULL}
+  },
+  0,
+  0,
+  0
+};
 
 /*
  * Threads creation table, one entry per thread.
  */
 THD_TABLE_BEGIN
   THD_TABLE_THREAD(0, "heartbeat", waThreadHB, ThreadHB, NULL)
-  THD_TABLE_THREAD(1, "cpu-watchdog", waThreadWD, ThreadWD, NULL)
-  THD_TABLE_THREAD(2, "serial", waThreadSer, ThreadSer, NULL)
+  THD_TABLE_THREAD(1, "serial", waThreadSer, ThreadSer, NULL)
 THD_TABLE_END
 
 /*
@@ -196,25 +157,33 @@ THD_TABLE_END
  */
 int main(void) {
 
-  /*
-   * System initializations.
-   * - HAL initialization, this also initializes the configured device drivers
-   *   and performs the board-specific initializations.
-   * - Kernel initialization, the main() function becomes a thread and the
-   *   RTOS is active.
-   */
+  uint32_t reset = RCC->CSR;
+  RCC->CSR |= RCC_CSR_RMVF; // Clear reset register to avoid poluting next start.
+
   halInit();
   chSysInit();
 
-  ping_expired = false;
-  shutdown = false;
-
+  /* Enable Wake-up (VCC_ON) pin */
   palEnableLineEvent(LINE_SYS_WKUP1, PAL_EVENT_MODE_BOTH_EDGES);
-  palSetLineCallback(LINE_SYS_WKUP1, pwr_cb, NULL);
+  palSetLineCallback(LINE_SYS_WKUP1, powerOffCallback, NULL);
 
-  palClearLine(LINE_NRST_MPU);
-  palClearLine(LINE_PWR_ON_IO);
-  palClearLine(LINE_PWR_ON_CORE);
+  /*!< Watchdog reset flag */
+  if (reset & RCC_CSR_IWDGRSTF || reset & RCC_CSR_WWDGRSTF) {
+    // Do something?
+  }
+
+  /* Wakeup from standby */
+  if (reset & RCC_CSR_LPWRRSTF) {
+
+  }
+
+  /*!< Software Reset flag */
+  if (reset & RCC_CSR_SFTRSTF) {
+    /* Reset to standby (needed to disable IWDG) */
+    standby();
+  }
+
+  stopCpu();
 
   adcStart(&ADCD1, &adccfg1);
   adcSTM32EnableVREF(&ADCD1);
@@ -223,6 +192,9 @@ int main(void) {
   adcStartConversion(&ADCD1, &adcgrpcfg1, samples1, ADC_GRP1_BUF_DEPTH);
 
   gptStart(&GPTD2, &gptcfg1);
+  pwmStart(&PWMD21, &pwmcfg);
+  crcStart(&CRCD1, &crc32_config);
+  sdStart(&LPSD1, NULL);
 
   /* Start threads manually at the end */
   chThdCreate(&nil_thd_configs[0]);

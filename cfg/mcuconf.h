@@ -118,7 +118,7 @@
  * PWM driver system settings.
  */
 #define STM32_PWM_USE_TIM2                  FALSE
-#define STM32_PWM_USE_TIM21                 FALSE
+#define STM32_PWM_USE_TIM21                 TRUE
 
 /*
  * SERIAL driver system settings.

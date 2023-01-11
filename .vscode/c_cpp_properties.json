@@ -1,0 +1,16 @@
+{
+    "configurations": [
+        {
+            "name": "STM32",
+            "includePath": [
+                "${workspaceFolder}/cfg",
+                "${workspaceFolder}/src",
+                "${workspaceFolder}/ChibiOS/os/**",
+                "${workspaceFolder}/ChibiOS-Contrib/os/**"
+            ],
+            "defines": [],
+            "compilerPath": "/home/mobyfab/bin/gcc-arm/arm-none-eabi-gcc"
+        }
+    ],
+    "version": 4
+}

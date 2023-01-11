@@ -5,7 +5,7 @@
 
 # Compiler options here.
 ifeq ($(USE_OPT),)
-  USE_OPT = -Os -ggdb -fomit-frame-pointer -falign-functions=16
+  USE_OPT = -Os -ggdb -std=c11 -fomit-frame-pointer -falign-functions=16
 endif
 
 # C specific options here (added to USE_OPT).
@@ -89,11 +89,12 @@ PROJECT = mgmt
 MCU  = cortex-m0plus
 
 # Imported source files and paths.
-CHIBIOS  := ChibiOS
-CHIBIOS_CONTRIB  := ChibiOS-Contrib
-CONFDIR  := ./cfg
-BUILDDIR := ./build
-DEPDIR   := ./.dep
+CHIBIOS         := ChibiOS
+CHIBIOS_CONTRIB := ChibiOS-Contrib
+CONFDIR         := ./cfg
+BUILDDIR        := ./build
+DEPDIR          := ./.dep
+AUTOBUILD_ROOT  := ./src
 
 # Licensing files.
 include $(CHIBIOS)/os/license/license.mk
@@ -115,11 +116,7 @@ LDSCRIPT= $(STARTUPLD)/STM32L011x4.ld
 
 # C sources that can be compiled in ARM or THUMB mode depending on the global
 # setting.
-CSRC = $(ALLCSRC) \
-       $(TESTSRC) \
-       board.c \
-       messages.c \
-       main.c
+CSRC = $(ALLCSRC)
 
 # C++ sources that can be compiled in ARM or THUMB mode depending on the global
 # setting.
@@ -182,6 +179,7 @@ include $(RULESPATH)/rules.mk
 ##############################################################################
 # Custom rules
 #
+include extra.mk
 
 #
 # Custom rules

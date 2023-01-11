@@ -121,14 +121,14 @@
  * @brief   Enables the PWM subsystem.
  */
 #if !defined(HAL_USE_PWM) || defined(__DOXYGEN__)
-#define HAL_USE_PWM                         FALSE
+#define HAL_USE_PWM                         TRUE
 #endif
 
 /**
  * @brief   Enables the RTC subsystem.
  */
 #if !defined(HAL_USE_RTC) || defined(__DOXYGEN__)
-#define HAL_USE_RTC                         FALSE
+#define HAL_USE_RTC                         TRUE
 #endif
 
 /**

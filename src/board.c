@@ -129,6 +129,12 @@ static void stm32_gpio_init(void) {
  */
 void __early_init(void) {
 
+  DBGMCU->APB1FZ |= DBGMCU_APB1_FZ_DBG_IWDG_STOP;
+  DBGMCU->APB1FZ |= DBGMCU_APB1_FZ_DBG_WWDG_STOP;
+
+  DBGMCU->CR |= DBGMCU_CR_DBG_SLEEP;
+  DBGMCU->CR |= DBGMCU_CR_DBG_STOP;
+
   stm32_gpio_init();
   stm32_clock_init();
 }

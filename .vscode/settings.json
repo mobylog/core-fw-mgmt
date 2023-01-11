@@ -3,6 +3,18 @@
     "*.inc": "cpp",
     "array": "c",
     "string": "c",
-    "string_view": "c"
-  }
+    "string_view": "c",
+    "cstring": "c",
+    "common.h": "c"
+  },
+  "cortex-debug.openocdPath": "/usr/bin/openocd",
+  "C_Cpp.files.exclude": {
+    "ChibiOS/**/simulator/**": true,
+    "ChibiOS/**/SIMIA32/**": true,
+    "ChibiOS/testhal/**": true,
+  },
+  "files.exclude": {
+    "ChibiOS/**/simulator/**": true,
+    "ChibiOS/**/SIMIA32/**": true,
+},
 }

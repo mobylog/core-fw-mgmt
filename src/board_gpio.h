@@ -10,7 +10,7 @@
 #define CHN_ADC_5V 9
 #define CHN_ADC_VCC 1
 #define CHN_MGMT_LED 0
-#define ICUD_MGMT_LED ICUD1
+#define ICUD_MGMT_LED ICUD21
 #define LINE_ADC_5V PAL_LINE(GPIOB, 1U)
 #define LINE_ADC_VCC PAL_LINE(GPIOA, 1U)
 #define LINE_BTN PAL_LINE(GPIOA, 7U)
@@ -56,7 +56,7 @@
 #define PORT_SYS_SWCLK GPIOA
 #define PORT_SYS_SWDIO GPIOA
 #define PORT_SYS_WKUP1 GPIOA
-#define PWMD_MGMT_LED PWMD1
+#define PWMD_MGMT_LED PWMD21
 #define TIM_MGMT_LED 21
 
 
@@ -415,5 +415,126 @@
     PIN_AFIO_AF(14, 0) | \
     PIN_AFIO_AF(15, 0) | \
     0)
+
+
+/* PORT I */
+#define VAL_GPIOI_MODER ( \
+    PIN_MODE_ANALOG(0) | \
+    PIN_MODE_ANALOG(1) | \
+    PIN_MODE_ANALOG(2) | \
+    PIN_MODE_ANALOG(3) | \
+    PIN_MODE_ANALOG(4) | \
+    PIN_MODE_ANALOG(5) | \
+    PIN_MODE_ANALOG(6) | \
+    PIN_MODE_ANALOG(7) | \
+    PIN_MODE_ANALOG(8) | \
+    PIN_MODE_ANALOG(9) | \
+    PIN_MODE_ANALOG(10) | \
+    PIN_MODE_ANALOG(11) | \
+    PIN_MODE_ANALOG(12) | \
+    PIN_MODE_ANALOG(13) | \
+    PIN_MODE_ANALOG(14) | \
+    PIN_MODE_ANALOG(15) | \
+    0)
+
+#define VAL_GPIOI_OTYPER ( \
+    PIN_OTYPE_PUSHPULL(0) | \
+    PIN_OTYPE_PUSHPULL(1) | \
+    PIN_OTYPE_PUSHPULL(2) | \
+    PIN_OTYPE_PUSHPULL(3) | \
+    PIN_OTYPE_PUSHPULL(4) | \
+    PIN_OTYPE_PUSHPULL(5) | \
+    PIN_OTYPE_PUSHPULL(6) | \
+    PIN_OTYPE_PUSHPULL(7) | \
+    PIN_OTYPE_PUSHPULL(8) | \
+    PIN_OTYPE_PUSHPULL(9) | \
+    PIN_OTYPE_PUSHPULL(10) | \
+    PIN_OTYPE_PUSHPULL(11) | \
+    PIN_OTYPE_PUSHPULL(12) | \
+    PIN_OTYPE_PUSHPULL(13) | \
+    PIN_OTYPE_PUSHPULL(14) | \
+    PIN_OTYPE_PUSHPULL(15) | \
+    0)
+
+#define VAL_GPIOI_OSPEEDR ( \
+    PIN_OSPEED_VERYLOW(0) | \
+    PIN_OSPEED_VERYLOW(1) | \
+    PIN_OSPEED_VERYLOW(2) | \
+    PIN_OSPEED_VERYLOW(3) | \
+    PIN_OSPEED_VERYLOW(4) | \
+    PIN_OSPEED_VERYLOW(5) | \
+    PIN_OSPEED_VERYLOW(6) | \
+    PIN_OSPEED_VERYLOW(7) | \
+    PIN_OSPEED_VERYLOW(8) | \
+    PIN_OSPEED_VERYLOW(9) | \
+    PIN_OSPEED_VERYLOW(10) | \
+    PIN_OSPEED_VERYLOW(11) | \
+    PIN_OSPEED_VERYLOW(12) | \
+    PIN_OSPEED_VERYLOW(13) | \
+    PIN_OSPEED_VERYLOW(14) | \
+    PIN_OSPEED_VERYLOW(15) | \
+    0)
+
+#define VAL_GPIOI_PUPDR ( \
+    PIN_PUPDR_FLOATING(0) | \
+    PIN_PUPDR_FLOATING(1) | \
+    PIN_PUPDR_FLOATING(2) | \
+    PIN_PUPDR_FLOATING(3) | \
+    PIN_PUPDR_FLOATING(4) | \
+    PIN_PUPDR_FLOATING(5) | \
+    PIN_PUPDR_FLOATING(6) | \
+    PIN_PUPDR_FLOATING(7) | \
+    PIN_PUPDR_FLOATING(8) | \
+    PIN_PUPDR_FLOATING(9) | \
+    PIN_PUPDR_FLOATING(10) | \
+    PIN_PUPDR_FLOATING(11) | \
+    PIN_PUPDR_FLOATING(12) | \
+    PIN_PUPDR_FLOATING(13) | \
+    PIN_PUPDR_FLOATING(14) | \
+    PIN_PUPDR_FLOATING(15) | \
+    0)
+
+#define VAL_GPIOI_ODR ( \
+    PIN_ODR_LOW(0) | \
+    PIN_ODR_LOW(1) | \
+    PIN_ODR_LOW(2) | \
+    PIN_ODR_LOW(3) | \
+    PIN_ODR_LOW(4) | \
+    PIN_ODR_LOW(5) | \
+    PIN_ODR_LOW(6) | \
+    PIN_ODR_LOW(7) | \
+    PIN_ODR_LOW(8) | \
+    PIN_ODR_LOW(9) | \
+    PIN_ODR_LOW(10) | \
+    PIN_ODR_LOW(11) | \
+    PIN_ODR_LOW(12) | \
+    PIN_ODR_LOW(13) | \
+    PIN_ODR_LOW(14) | \
+    PIN_ODR_LOW(15) | \
+    0)
+
+#define VAL_GPIOI_AFRL ( \
+    PIN_AFIO_AF(0, 0) | \
+    PIN_AFIO_AF(1, 0) | \
+    PIN_AFIO_AF(2, 0) | \
+    PIN_AFIO_AF(3, 0) | \
+    PIN_AFIO_AF(4, 0) | \
+    PIN_AFIO_AF(5, 0) | \
+    PIN_AFIO_AF(6, 0) | \
+    PIN_AFIO_AF(7, 0) | \
+    0)
+
+#define VAL_GPIOI_AFRH ( \
+    PIN_AFIO_AF(8, 0) | \
+    PIN_AFIO_AF(9, 0) | \
+    PIN_AFIO_AF(10, 0) | \
+    PIN_AFIO_AF(11, 0) | \
+    PIN_AFIO_AF(12, 0) | \
+    PIN_AFIO_AF(13, 0) | \
+    PIN_AFIO_AF(14, 0) | \
+    PIN_AFIO_AF(15, 0) | \
+    0)
+
+
 
 #endif
